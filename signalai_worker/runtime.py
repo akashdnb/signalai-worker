@@ -65,12 +65,15 @@ class WorkerRuntime:
             created_at=row["created_at"],
         )
         handler = HANDLERS.get(job.type)
+        heartbeat = asyncio.create_task(self._heartbeat(repository, job.job_id))
         try:
             if handler is None:
                 raise RuntimeError(f"unknown_job_type:{job.type}")
             result = await handler(job)
             if not await repository.complete(job.job_id, result):
                 logger.warning("job_completion_lost job_id=%s", job.job_id)
+        except asyncio.CancelledError:
+            raise
         except Exception as exc:
             error_code = "UNKNOWN_JOB_TYPE" if str(exc).startswith("unknown_job_type:") else "JOB_EXECUTION_FAILED"
             await repository.fail_or_retry(
@@ -88,6 +91,17 @@ class WorkerRuntime:
                 job.attempt,
                 job.correlation_id,
             )
+        finally:
+            heartbeat.cancel()
+            await asyncio.gather(heartbeat, return_exceptions=True)
+
+    async def _heartbeat(self, repository: JobRepository, job_id: str) -> None:
+        interval = max(settings.lease_seconds // 3, 10)
+        while True:
+            await asyncio.sleep(interval)
+            if not await repository.heartbeat(job_id):
+                logger.warning("job_lease_lost job_id=%s", job_id)
+                return
 
     async def _reap_tasks(self) -> None:
         done = {task for task in self._tasks if task.done()}
@@ -103,5 +117,7 @@ class WorkerRuntime:
     async def _shutdown_tasks(self) -> None:
         if not self._tasks:
             return
+        for task in self._tasks:
+            task.cancel()
         await asyncio.gather(*self._tasks, return_exceptions=True)
         self._tasks.clear()
