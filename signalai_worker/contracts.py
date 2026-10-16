@@ -4,6 +4,9 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field
 
 
+JobStatus = Literal["queued", "running", "completed", "failed"]
+
+
 class JobEnvelope(BaseModel):
     """Language-neutral envelope exchanged between server and workers."""
 
@@ -20,7 +23,7 @@ class JobEnvelope(BaseModel):
 
 class JobResult(BaseModel):
     job_id: str
-    status: Literal["completed", "failed"]
+    status: JobStatus
     result: dict[str, Any] = Field(default_factory=dict)
     error_code: str | None = None
     error_message: str | None = None
