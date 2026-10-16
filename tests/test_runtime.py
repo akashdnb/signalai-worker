@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 
@@ -35,7 +35,7 @@ async def test_runtime_executes_registered_handler():
         "max_attempts": 3,
         "idempotency_key": "echo-1",
         "correlation_id": "corr-1",
-        "created_at": datetime.now(timezone.utc),
+        "created_at": datetime.now(UTC),
     }
 
     await runtime._execute(repository, row)
