@@ -14,6 +14,4 @@ RUN pip install --upgrade pip && pip install .
 RUN useradd --create-home --uid 10001 signalai
 USER signalai
 
-EXPOSE 8000
-
-CMD ["uvicorn", "signalai_worker.app:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["python", "-m", "signalai_worker.worker"]
