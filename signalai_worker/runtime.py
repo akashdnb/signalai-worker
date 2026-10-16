@@ -45,7 +45,7 @@ class WorkerRuntime:
                 if claimed == 0:
                     try:
                         await asyncio.wait_for(self._stop.wait(), timeout=settings.poll_interval_seconds)
-                    except asyncio.TimeoutError:
+                    except TimeoutError:
                         pass
 
             await self._shutdown_tasks()
