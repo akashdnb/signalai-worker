@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 
@@ -15,7 +15,7 @@ async def test_echo_handler_preserves_payload():
         payload={"value": 42},
         idempotency_key="echo-1",
         correlation_id="corr-1",
-        created_at=datetime.now(timezone.utc),
+        created_at=datetime.now(UTC),
     )
     assert await echo_handler(job) == {"accepted_type": "system.echo", "payload": {"value": 42}}
     assert HANDLERS["system.echo"] is echo_handler
