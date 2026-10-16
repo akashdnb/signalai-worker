@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field
@@ -18,7 +18,7 @@ class JobEnvelope(BaseModel):
     attempt: int = Field(default=1, ge=1)
     idempotency_key: str = Field(min_length=1)
     correlation_id: str = Field(min_length=1)
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
 class JobResult(BaseModel):
