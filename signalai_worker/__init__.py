@@ -1,0 +1,1 @@
+"""SignalAI asynchronous execution worker."""
