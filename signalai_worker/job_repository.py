@@ -1,4 +1,4 @@
-from datetime import datetime
+import json
 from typing import Any
 
 import asyncpg
@@ -9,16 +9,13 @@ class JobRepository:
         self.pool = pool
         self.worker_id = worker_id
 
-    async def recover_stale_jobs(self) -> None:
+    async def recover_stale_jobs(self, lease_seconds: int) -> None:
         async with self.pool.acquire() as conn:
             await conn.execute(
                 """
                 update execution_jobs
                 set status = case when attempt >= max_attempts then 'failed' else 'queued' end,
-                    available_at = case
-                      when attempt >= max_attempts then available_at
-                      else now()
-                    end,
+                    available_at = case when attempt >= max_attempts then available_at else now() end,
                     locked_at = null,
                     locked_by = null,
                     error_code = case when attempt >= max_attempts then 'LEASE_EXPIRED' else null end,
@@ -28,7 +25,7 @@ class JobRepository:
                 where status = 'running'
                   and locked_at < now() - ($1 * interval '1 second')
                 """,
-                900,
+                lease_seconds,
             )
 
     async def claim(self) -> dict[str, Any] | None:
@@ -60,6 +57,19 @@ class JobRepository:
                 )
                 return dict(row) if row else None
 
+    async def heartbeat(self, job_id: str) -> bool:
+        async with self.pool.acquire() as conn:
+            command = await conn.execute(
+                """
+                update execution_jobs
+                set locked_at = now(), updated_at = now()
+                where id = $1 and status = 'running' and locked_by = $2
+                """,
+                job_id,
+                self.worker_id,
+            )
+            return command.endswith(" 1")
+
     async def complete(self, job_id: str, result: dict[str, Any]) -> bool:
         async with self.pool.acquire() as conn:
             command = await conn.execute(
@@ -73,7 +83,7 @@ class JobRepository:
                     updated_at = now()
                 where id = $2 and status = 'running' and locked_by = $3
                 """,
-                result,
+                json.dumps(result),
                 job_id,
                 self.worker_id,
             )
