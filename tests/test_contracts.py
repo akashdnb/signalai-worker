@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 from pydantic import ValidationError
@@ -14,7 +14,7 @@ def test_job_envelope_accepts_valid_payload() -> None:
         payload={"company_id": "company_123"},
         idempotency_key="research:company_123:v1",
         correlation_id="corr_123",
-        created_at=datetime.now(timezone.utc),
+        created_at=datetime.now(UTC),
     )
 
     assert job.schema_version == 1
