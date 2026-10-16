@@ -29,33 +29,32 @@ class JobRepository:
             )
 
     async def claim(self) -> dict[str, Any] | None:
-        async with self.pool.acquire() as conn:
-            async with conn.transaction():
-                row = await conn.fetchrow(
-                    """
-                    with candidate as (
-                      select id
-                      from execution_jobs
-                      where status = 'queued'
-                        and available_at <= now()
-                        and attempt < max_attempts
-                      order by available_at asc, created_at asc
-                      for update skip locked
-                      limit 1
-                    )
-                    update execution_jobs j
-                    set status = 'running',
-                        attempt = j.attempt + 1,
-                        locked_at = now(),
-                        locked_by = $1,
-                        updated_at = now()
-                    from candidate
-                    where j.id = candidate.id
-                    returning j.*
-                    """,
-                    self.worker_id,
+        async with self.pool.acquire() as conn, conn.transaction():
+            row = await conn.fetchrow(
+                """
+                with candidate as (
+                  select id
+                  from execution_jobs
+                  where status = 'queued'
+                    and available_at <= now()
+                    and attempt < max_attempts
+                  order by available_at asc, created_at asc
+                  for update skip locked
+                  limit 1
                 )
-                return dict(row) if row else None
+                update execution_jobs j
+                set status = 'running',
+                    attempt = j.attempt + 1,
+                    locked_at = now(),
+                    locked_by = $1,
+                    updated_at = now()
+                from candidate
+                where j.id = candidate.id
+                returning j.*
+                """,
+                self.worker_id,
+            )
+            return dict(row) if row else None
 
     async def heartbeat(self, job_id: str) -> bool:
         async with self.pool.acquire() as conn:
