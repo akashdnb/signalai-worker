@@ -1,24 +1,28 @@
-from arq.connections import RedisSettings
+import asyncio
+import logging
 
-from signalai_worker.config import settings
-from signalai_worker.jobs import execute_job
+from signalai_worker.runtime import WorkerRuntime
 
-
-async def startup(_ctx: dict) -> None:
-    return None
-
-
-async def shutdown(_ctx: dict) -> None:
-    return None
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(name)s %(message)s",
+)
 
 
-class WorkerSettings:
-    functions = [execute_job]
-    redis_settings = RedisSettings.from_dsn(settings.redis_url)
-    max_jobs = settings.max_jobs
-    job_timeout = settings.job_timeout_seconds
-    health_check_interval = 30
-    max_tries = settings.max_attempts
-    retry_jobs = True
-    on_startup = startup
-    on_shutdown = shutdown
+async def main() -> None:
+    runtime = WorkerRuntime()
+    loop = asyncio.get_running_loop()
+
+    for signal_name in ("SIGINT", "SIGTERM"):
+        try:
+            import signal
+
+            loop.add_signal_handler(getattr(signal, signal_name), runtime.stop)
+        except (NotImplementedError, RuntimeError):
+            pass
+
+    await runtime.run()
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
