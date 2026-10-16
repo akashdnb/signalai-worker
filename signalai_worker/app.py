@@ -1,6 +1,7 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 
 from signalai_worker.config import settings
+from signalai_worker.db import create_pool
 
 app = FastAPI(title="SignalAI Worker", version=settings.service_version)
 
@@ -12,5 +13,12 @@ async def health() -> dict[str, str]:
 
 @app.get("/ready")
 async def ready() -> dict[str, str]:
-    # Queue dependency checks will be added before production deployment.
+    try:
+        pool = await create_pool()
+        try:
+            await pool.fetchval("select 1")
+        finally:
+            await pool.close()
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail="database_unavailable") from exc
     return {"status": "ready", "service": settings.service_name}

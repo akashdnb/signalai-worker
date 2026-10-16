@@ -1,7 +1,10 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field
+
+
+JobStatus = Literal["queued", "running", "completed", "failed"]
 
 
 class JobEnvelope(BaseModel):
@@ -15,12 +18,12 @@ class JobEnvelope(BaseModel):
     attempt: int = Field(default=1, ge=1)
     idempotency_key: str = Field(min_length=1)
     correlation_id: str = Field(min_length=1)
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
 class JobResult(BaseModel):
     job_id: str
-    status: Literal["completed", "failed"]
+    status: JobStatus
     result: dict[str, Any] = Field(default_factory=dict)
     error_code: str | None = None
     error_message: str | None = None
